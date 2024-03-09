@@ -1,0 +1,211 @@
+---
+title: "Nonlinear Models"
+author: "Joseph Adler"
+date: "2012-09-25"
+output: html_document
+---
+The regression models shown above all produced linear models. In this section, we'll look at some algorithms for fitting nonlinear models when you know the general form of the model.
+
+# Generalized Linear Model
+
+Generalized linear modeling is a technique developed by John Nelder and Robert Wedderburn to compute many common types of models using a single framework. You can use generalized linear models (GLMs) to fit linear regression models, logistic regression models, Poisson regression models, and other types of models.
+
+As the name implies, GLMs are a generalization of linear models. Like linear models there is a response variable $y$ and a set of predictor variables $x_1, x_2, \ldots, x_n$. GLMs introduce a new quantity called the _linear predictor_. The linear predictor takes the following form:
+
+\begin{align*}
+\eta = c_1 x_1 + c_2 x_2 + \cdots + c_n x_n
+\end{align*}
+
+In a general linear model, the predicted value is a function of the linear predictor. The relationship between the response and predictor variables does not have to be linear. However, the relationship between the predictor variables and the linear predictor must be linear. Additionally, the only way that the predictor variables influence the predicted value through the linear predictor.
+
+In "Example: A Simple Linear Model" on page 401, we noted that a good way to interpret the predicted value of a model is as the expected value (or mean) of the response variable, given a set of predictor variables. This is also true in GLMs, and the relationships between that mean and the linear predictor are what make GLMs so flexible. To be precise, there must be a smooth, invertible function $m$ such that:
+
+\begin{align*}
+\mu = m(\eta), \eta = m^{-1}(\mu) = l(\mu)
+\end{align*}
+
+The inverse of $m$ (denoted by $l$ above) is called the _link function_. You can use many different function families with a GLM, each of which lets you predict a different form of model. For GLMs, the underlying probability distribution needs to be part of the exponential family of probability distributions. More precisely, distributions that can be modeled by GLMs have the following form:
+
+\begin{align*}
+f_y( y;\mu;\varphi)=\exp \left( \frac{A}{\varphi}(y \lambda(\mu) - \gamma \lambda(\mu)) + \tau(y, \varphi) \right)
+\end{align*}
+
+As a simple example, if you use the identity function for $m$ and assume a normal distribution for the error term, then $\eta = \mu$ and we just have an ordinary linear regression model. However, you can specify some much more interesting forms of models with GLMs. You can model functions with Gaussian, binomial, Poisson, gamma, and other distributions, and use a variety of link functions, including identity, logit, probit, inverse, log, and other functions.
+
+In R, you can model all of these different types of models using the `glm` function:
+```
+glm(formula, family = gaussion, data, weights, subset,
+    na.action, start = NULL, etastart, mustart, offset, control = list(...),
+    model = TRUE, method = "glm.fit", x = FALSE, y = TRUE, contrast = NULL,
+    ...)
+```
+
+Here are the arguments to `glm`.
+
+|Argument|Description|Default|
+|:---|:---|:---|
+|formula| A formula object that specifies the form of the model to fit. ||
+|family| Describes the probability distribution of the disturbance term and the link function for the model. (See below for information on different families).|`gaussian`|
+|data| A data frame, list, or environment (or an object that can be coerced to a data frame) in which the variables in `formula` can be evaluated.||
+|weights| A numeric vector containing weights for each observation in data.||
+|subset|A vector specifying the observations in data to include in the model.||
+|na.action|A function that specifies what `lm` should do if there are `NA` values in the data. If `NULL`, `lm` uses `na.omit`|`getOption("na.action")` which defaults to `na.fail`|
+|start|A numeric vector containing starting values for parameters in the linear predictor.|NULL|
+|etastart|A numeric vector containing starting values for the linear predictor.||
+|mustart|A numeric vector containing starting values for the vector of means.||
+|offset|A set of terms that are added to the linear term with a constant coefficient of 1. (You can use an offset to force a variable, or a set of variables, into the model).||
+|control|A list of parameters for controlling the fitting process. Parameters include `epsilon` (which specifies the maximum number of iterations), and `trace` (which specifies whether to output information on each iteration). See `glm.control` for more information.|`glm.control(...)` which, in turn, has defaults `epsilon=1e-8`, `maxit=25`, `trace=FALSE`|
+|model|A logical value specifying whether the "model frame" should be returned.|TRUE|
+|x|Logical values specifying whether the "model matrix" should be returned.|FALSE|
+|y|A logical value specifying whether the "response vector" should be returned|TRUE|
+|contrasts|A list of contrasts for factors in the model.|NULL|
+|...|Addtional arguments passed to `glm.control`||
+
+GLM fits a model using iteratively reqeighted least squares (IRLS).
+
+As noted above, you can model many different types of functions using GLM. THe following function families are available in R:
+```
+binomial(link = "logit")
+gaussian(link = "identity")
+inverse.gaussian(link = "1/mu^2")
+poisson(link = "log")
+quasi(link = "identity", variance = "constant")
+quasibinomial(link = "logit")
+quasipoisson(link = "log")
+```
+
+You may specify an alternative link function for most of these function families. Here is a list of the possible linke functions for each family.
+
+|Family function|Allowed link function|Default link function|
+|:---|:---|:---|
+|binomial|"logit", "probit", "cauchit", "log", and "cloglog"|"logit"|
+|gaussian|"identity", "log", and "inverse"|"identity"|
+|Gamma|"inverse", "identity", and "log"|"inverse"|
+|inverse.gaussian|"1/mu^2", "inverse", "identity", and "log"|"1/mu^2"|
+|poisson|"log", "identity", and "sqrt"|"log"|
+|quasi|"logit", "probit", "cloglog", "identity", "inverse", "log", "1/mu^2", and "sqrt", or use the power function to create a power link function|"identity"|
+|quasibinomial||"logit"|
+|quasipoisson||"log"|
+
+The `quasi` function also takes a variance argument (with default constant); see the help file for `quasi` for more information.
+
+If you are working with a large data set and have limited memory, you may want to consider using the `bigglm` function in the `biglm` package.
+
+As an example, let's use the `glm` function to fit the same model that we used for `lm`. By default, `glm` assumes a Gaussian error distribution, so we expect the fitted model to be identical to the one fitted above:
+```{r echo=FALSE}
+require(nutshell)
+data(team.batting.00to08)
+require(lattice)
+attach(team.batting.00to08);
+forplot <- make.groups(
+  singles        = data.frame(value=singles,        teamID,yearID,runs),
+  doubles        = data.frame(value=doubles,        teamID,yearID,runs),
+  triples        = data.frame(value=triples,        teamID,yearID,runs),
+  homeruns       = data.frame(value=homeruns,       teamID,yearID,runs),
+  walks          = data.frame(value=walks,          teamID,yearID,runs),
+  stolenbases    = data.frame(value=stolenbases,    teamID,yearID,runs),
+  caughtstealing = data.frame(value=caughtstealing, teamID,yearID,runs),
+  hitbypitch     = data.frame(value=hitbypitch,     teamID,yearID,runs),
+  sacrificeflies = data.frame(value=sacrificeflies, teamID,yearID,runs)
+);
+detach(team.batting.00to08)
+```
+```{r}
+runs.glm <- glm(
+  formula=runs~singles+doubles+triples+homeruns+
+               walks+hitbypitch+sacrificeflies+
+               stolenbases+caughtstealing,
+  data=team.batting.00to08)
+runs.glm
+```
+As expected, the fitted model is identical to the model from `lm`. (Typically, it's better to use `lm` rather than `glm` when fitting an ordinary linear regression model because `lm`  is more efficient). Notice that `glm` provides slightly different information through the print statement, such as the degrees of freedom, null deviance, residual deviance, and AIC. We'll revisit `glm` when talking about logistic regression models for classification; see "Logistic Regression" on page 467.
+
+## glmnet
+The `glmnet` package fits a generalized linear model with penalized maximum likelihood. In other words, this package combines GLM models with elastic net models, using elastic net. (you can use this function to fit a model using ridge regression or lasso with the correct set of parameters). In practice, this can be useful if you need to fit a time series model, a logistic regression model, or another type of linear model with constraints on the coefficients. This is particularly useful for very large or wide data sets. You fit a model using the `glmnet` function:
+```
+glmnet(x, y, family, weights, offset, alpha, nlamda, lambda.min.ratio,
+    lambda, standardize, thresh, dfmax, pmax, exclude, penalty.factor,
+    maxit, type.gaussian)
+```
+Here is a description of the arguemnts to `glmnet`:
+
+|Argument|Description|Default|
+|:---|:---|:---|
+|x|A matrix of predictor varialbes.||
+|y|A numeric vector containing the response variable.||
+|family|Specifies the family to use for fitting the glm model. Choices include "gaussian", "binomial", "poisson", "multinomial", and "cox"|"gaussian"|
+|weights|A vector of observation weights.|1 for each observation|
+|offset|A vector that is included in the linear predictor. Typically used with a Poisson family to represent log of exposure time, or to refine an existing fit.|NULL|
+|alpha|The elastic net mixing parameter; use `alpha=0` for the ridge penalty, `alpha=1` for the lasso penalty. See the documentation for a more concise explanation.|1|
+|nlambda|The number of lambda values.|100|
+|lambda.min.ratio|Smallest value for lambda as a fraction of the highest lambda value. (The highest value is derived from the data; see the help file for more details).|`ifelse(nobs<nvars,0.01,0.0001)`|
+|lambda|A user-supplied lambda sequence.||
+|standardize|A logical flag indicating whether to standardize the data.|TRUE|
+|max.steps|The maximum number of steps.|`50 * min(ncol(x), nrow(x) - 1)`|
+|thresh|Convergence threshold for coordinate descent.|`1e-07`|
+|dfmax|Specifies a cap on the maximum number of variables in the model.|`nvars + 1`|
+|pmax|Specifies a cap on the maximum number of variables to be nonzero.|`min(dfmax * 2, nvars)`|
+|exclude|Indices of variables to be excluded from the model.||
+|penalty.factor|Separate penalties to be applied for each coefficient.|Default is identical penalties: `rep(1, nvars)`|
+|maxit|Maximum number of passes over the data.|100000|
+|type.gaussian|Choice of algorithm for Gaussian. The covariance algorithm saves all inner products ever computed; the naive algortihm recomputes these values. The defualt choices are based on performance.|`ifelse(nvars<500, "covariance", "naive")`|
+
+As a quick example, let's fit a glmnet model to the 2008 team batting data:
+```{r}
+names(team.batting.00to08)
+```
+```{r}
+require(glmnet)
+# for y, use columns 4 through 12, for x use runs
+# also, translate predictors to matrix
+br.glmnet <- glmnet(x=as.matrix(team.batting.00to08[, 4:12]),
+  y=team.batting.00to08$runs, standardize=FALSE)
+summary(br.glmnet)
+```
+
+Printing the model object will show the number of non-zero coefficient (labeled `df`, even though degrees of freedom only makes sense for lasso fits), percent deviation, and lambda. Here's a few lines of what print shows for the `br.glmnet` object (truncated for brevity):
+```{r}
+br.glmnet
+```
+You can show the coefficients of the model at different values of the penalty parameter using the `coef.glmnet` function:
+```{r}
+coef(br.glmnet, s=1)
+```
+Note how the coefficients are similar to the standard linear models, but how the penalty causes the caught-stealing coefficient to vanish. (Also note the intercept value).
+
+More interestingly, you can plot how the coefficients change with the L1 norm of the coefficients (or lambda or the explained deviance) using the `plot.glmnet` function:
+```{r}
+plot(br.glmnet)
+```
+## Nonlinear Least Squares
+Sometimes you know the form of a model, even if the model is extremely nonlinear.
+
+To fit nonlinear models (minimizing least squares error), you can use the `nls` function:
+
+```
+nls(formula, data = parent.frame(), start, control = nls.control(),
+    algorithm = c("default", "plinear", "port"), trace = FALSE,
+    subset, weights, na.action, model = FALSE, lower = -Inf,
+    upper = Inf, ...)
+```
+Here is a description of the arguments to the `nls` function.
+
+|Argument|Description|
+|:---|:---|
+|formula|A formula object that specifies the form of the model to fit.|
+|data|A data frame in which formula can be evaluated.|
+|start|A named list or named vector with starting estimates for the fit.|
+|control|A list of arguments to pass to control the fitting process (see the help file for `nls.control` for more information).|
+|algorithm|The algorithm to use for fitting the model. Use `algortihm="plinear"` for the Golub-Pereyara algorithm for partially linear least squares models and `algorithm="port"` for the 'nl2sol' algorithm for the `PORT` library.|
+|trace|A logical value specifying whether to print the progress of the algorithm while `nls` is running.|
+|subset|An optional vector specifying the set of rows to include.|
+|weights|An optional vector specifying weights for observations.|
+|na.action|A function that specifies how to treat NA values in the data.|
+|model|A logical value specifying whether to include the model frame as part of teh model object.|
+|lower|An optional vector specifying lower bounds for the parameters of teh model.|
+|upper|An optional vector specifying upper bounds for the parameters of the model.|
+|...|Additional arguments (not currently used).|
+
+The `nls` function is actually a wrapper for the `nlm` function. The `nlm` function is similar to `nls` but takes an R function (not a formula) and a list of starting parameters as arguments. It's usually easier to use `nls` because `nls` allows you to specify models using formulas and data frames, like other R modeling functions. For more information about `nlm`, see the help file.
+
+By the way, you can actually use `nlm` to fit a linear model. It will work, but it will be slow and inefficient.

@@ -52,7 +52,7 @@ Arguments to `lm` include the following:
 
 
 |Argument|Description|Default|
-|:---:|:---:|:---:|
+|:---|:---|:---|
 |formula | A formula object that specifies the form of the model to fit.  | |
 |data | A data frame, list, or environment (or an object that can be coerced to a data frame) in which the variables in formula can be evaluated.  | |
 |subset | A vector specifying the observations in data to include in the model.| |

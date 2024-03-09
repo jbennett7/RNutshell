@@ -22,7 +22,7 @@ step(object, scope, scale = 0,
 Here is a description of the arguments to `step`.
 
 |Argument|Description|Default|
-|:---:|:---:|:---:|
+|:---|:---|:---|
 |object|An object representing a model, such as the objects returned by `lm`, `glm`, or `aov`.||
 |scope|An argument specifying a set of variables that you want in the final model and a list of all variables that you want to consider including in the model. The first set is called the _lower bound_, and the second is called the _upper bound_. If a single formula is specified, then it is interpreted as the upper bound. To specify both an upper and a lower bound, pass a list with two formulas labeled as upper and lower.||
 |scale|A value used in the definition of AIC for `lm` and `aov` models. See the help file for `extractAIC` for more information.|0|
@@ -56,7 +56,7 @@ lm.ridge(formula, data, subset, na.action, lambda = 0, model = FALSE,
 Arguments to `lm.ridge` are the following.
 
 |Argument|Description|Default|
-|:---:|:---:|:---:|
+|:---|:---|:---|
 |formula| A formula object that specifies the form of the model to fit. ||
 |data| A data frame, list, or environment (or an object that can be coerced to a data frame) in which the variables in `formula` can be evaluated.||
 |subset| A vector specifying the observations in data to include in the model.||
@@ -89,7 +89,7 @@ The `lars` function computes the entire lasso path at once. Specifically, it beg
 This function actually implements a more general algorithm called _least angle regression_; you have the option to choose least angle regression, forward stagewise regression, or stepwise regression instead of lasso. Here are the arguments to the `lars` function.
 
 |Argument|Description|Default|
-|:---:|:---:|:---:|
+|:---|:---|:---|
 |x| A matrix of predictor variables. ||
 |y| A numeric vector containing the response variable. ||
 |type| The type of model to fit. Use `type="lass"` for lasso, `type="lar"` for least angle regression, `type="forward.stagewise"` for infinitesimal forward stagewise, and `type="stepwise"` for stepwise.| |`c("lasso", "lar", "forward.stagewise", "stepwise")`|
@@ -110,7 +110,7 @@ enet(x, y, lambda, max.steps, normalize, intercept, trace, eps)
 Unfortunately, the `enet` function requires its input as a matrix and not as a data frame and a formula. Here is a description of the parameters for `enet`.
 
 |Argument|Description|Default|
-|:---:|:---:|:---:|
+|:---|:---|:---|
 |x| A matrix of predictor variables. ||
 |y| A numeric vector containing the response variable.||
 |lambda| The quadratic penalty, Use `lambda=0` for a lasso fit.||

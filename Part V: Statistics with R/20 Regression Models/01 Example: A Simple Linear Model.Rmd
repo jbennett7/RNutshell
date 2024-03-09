@@ -15,14 +15,14 @@ This chapter looks at regression models in R; classification models are covered 
 A linear regression assumes that there is a linear relationship between the response variable and the predictors. Specifically, a linear regression assumes that a response variable $y$ is a linear function of a set of predictor variables $x_1, x_2, \ldots, x_n$.
 
 As an example, we're going to look at how different metrics predict the runs scored by a baseball team. Let's start by loading the data for every team between 2000 and 2008.
-```{r nutshell}
+```{r}
 library(nutshell)
 data(team.batting.00to08)
 ```
 Let's look at scatter plots of runs versus each other variable so that we can see which variables are likely to be most important.
 
 We'll create a data frame for plotting, using the `make.groups` function:
-```{r batting}
+```{r}
 require(lattice)
 attach(team.batting.00to08);
 forplot <- make.groups(
@@ -39,7 +39,7 @@ forplot <- make.groups(
 detach(team.batting.00to08)
 ```
 Now, we'll generate the scatter plots using the `xyplot` function:
-```{r plots}
+```{r}
 xyplot(runs ~ value|which, data=forplot,
        scales=list(relation="free"),
        pch=19, cex=.2,
