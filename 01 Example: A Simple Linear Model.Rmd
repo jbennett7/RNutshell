@@ -1,0 +1,222 @@
+---
+title: "Example: A Simple Linear Model"
+author: "Joseph Adler"
+date: "2012-09-25"
+publisher: "O'Reilly"
+output: html_document
+---
+A _regression model_ shows how a continuous value (called the _response variable_, or the _dependent variable_) is related to a set of other values (called the _predictors_, _stimulus variables_, or _independent variables_). Often, a regression model is used to predict values where they are unknown. For example, warfarin is a drug commonly used as a blood thinner or anticoagulant. A doctor might use a regression model to predict the correct dose of warfarin to give a patient based on several known variables about hte patient (such as the patient's weight). Another example of a regression model might be for marketing financial products. An analyst might estimate the average balance of a credit card customer (which, in turn, affects the expected revenue from that customer).
+
+Sometimes, a regression model is simply used to explain a phenomonon, but not to actually predict values. For example, a scientist might suspect that weight is correlated to consumption of certain types of foods but wants to adjust for a variety of factors, including age, exercise, genetics (and, hopefully, other factors). The scientist could use a regression model to help show the relationship between weight and food consumed by including other variable sin the regression. Models can be used for many other purposes, including visualizing trends, analysis of variance tests, and testing variable significance.
+
+This chapter looks at regression models in R; classification models are covered in Chapter 21. To show how to use statistical models in R, I will start with the simplest type of model: linear regression models. (Specifically, I'll use the least squares method to estimate coefficients). I'll show how to build, evaluate, and refine a mdoel in R. Then I'll describe funcitons in R for building more sophisticated types of models.
+
+# Example: A Simple Linear Model
+A linear regression assumes that there is a linear relationship between the response variable and the predictors. Specifically, a linear regression assumes that a response variable $y$ is a linear function of a set of predictor variables $x_1, x_2, \ldots, x_n$.
+
+As an example, we're going to look at how different metrics predict the runs scored by a baseball team. Let's start by loading the data for every team between 2000 and 2008.
+```{r nutshell}
+library(nutshell)
+data(team.batting.00to08)
+```
+Let's look at scatter plots of runs versus each other variable so that we can see which variables are likely to be most important.
+
+We'll create a data frame for plotting, using the `make.groups` function:
+```{r batting}
+require(lattice)
+attach(team.batting.00to08);
+forplot <- make.groups(
+  singles        = data.frame(value=singles,        teamID,yearID,runs),
+  doubles        = data.frame(value=doubles,        teamID,yearID,runs),
+  triples        = data.frame(value=triples,        teamID,yearID,runs),
+  homeruns       = data.frame(value=homeruns,       teamID,yearID,runs),
+  walks          = data.frame(value=walks,          teamID,yearID,runs),
+  stolenbases    = data.frame(value=stolenbases,    teamID,yearID,runs),
+  caughtstealing = data.frame(value=caughtstealing, teamID,yearID,runs),
+  hitbypitch     = data.frame(value=hitbypitch,     teamID,yearID,runs),
+  sacrificeflies = data.frame(value=sacrificeflies, teamID,yearID,runs)
+);
+detach(team.batting.00to08)
+```
+Now, we'll generate the scatter plots using the `xyplot` function:
+```{r plots}
+xyplot(runs ~ value|which, data=forplot,
+       scales=list(relation="free"),
+       pch=19, cex=.2,
+       strip=strip.custom(strip.levels=TRUE,
+                          horizontal=TRUE,
+                          par.strip.text=list(cex=.8))
+)
+```
+
+The results are shown in the above figure. Intuitively, teams that hit a lot of home runs score a lot of runs. Interestingly, teams that walk a lot score a lot of runs as well (maybe even more tan teams that score a lot of singles).
+
+## Fitting a Model
+Let's fit a linear model to the data and assign it to the variable `runs.mdl`. We'll use the `lm` function, which fits a linear model using ordinary least squares:
+```{r}
+runs.mdl <- lm(
+  formula=runs ~ singles + doubles + triples + homeruns + walks + hitbypitch + 
+    sacrificeflies + stolenbases + caughtstealing,
+    data=team.batting.00to08
+)
+```
+R doesn't show much information when you fit a model. (If you don't print the returned object, most modeling functions will not show _any_ information, unless there is an error). To get information about a model, you have to use helper functions.
+
+## Helper Functions for Specifying the Model
+In a formula object, some symbols have special interpretations. Specifically, "+", "*", "-", and "^" are interpreted specially by R. This means that you need to use some helper functions to represent simple addition, multiplication, subtraction, and exponentiation in a model formula. To interpret an expression literally, and not as a formula, use the identity function `I()`. For example, suppose that you want to include only the product of variables $a$ and $b$ in a formula spcification, but not just $a$ or $b$. If you specify $a*b$, this is interpreted as $a$, $b$, or $a*b$. To include only $a*b$, use the identity function `I()` to protect the expression $a*b$:
+```
+lm(y~I(a*b))
+```
+Sometimes, you would like to fit a polynomial function. Writing out all the terms individually can be tedious, but R provides a short way to specify all the terms at once. To do this, you use the `poly` function to add all terms up to a specified degree:
+```
+poly(x, ..., degree = 1, coefs = NULL, raw = FALSE)
+```
+As arguments, the `poly` function takes a vector `x` (or a set of vectors), `degree` to specify a maximum degree to generate, `coefs` to specify coefficients from a previous fit (when using `poly` to generate predicted values), and `raw` to specify whether to use raw and not orthogonal polynomials. For more information on how to specify formulas, see [Formulas](/formulas).
+
+## Getting Information About a Model
+In R, statistical models are represented by objects; statistical modeling functions return statistical model objects. When you fit a statistical model with most statistical software packaes (such SAS or SPSS) they print a lot of diagnostic information. In R, most statistical modeling functions do not print any information.
+
+If you simply call a model function in R but don't assign the model to a variable, the R console will print the object. (Specifically, it will call the generic method `print` with the object generated by the modeling function). R doesn't clutter your screen with lots of information you might not want. Instead, R includes a large set of functions for printing information about model objects. This section describes the functions for getting information about `lm` objects. Many of these functions may also be used with other types of models; see the help files for more information.
+
+### Viewing the model
+For most model functions (including `lm`), the best place to start is with the `print` method. If you are using the R console, you can simply enter the name of the returned object on the console to see the results of `print`:
+```{r}
+runs.mdl
+```
+To show the formula used to fit the model, use the formula function:
+```
+formula(x, ...)
+```
+Here is the formula on which the model function was called:
+```{r}
+formula(runs.mdl)
+```
+To get the list of coefficients for a model object, use the `coef` function:
+```
+coef(object, ...)
+```
+Here are the coefficients for the model fitted above:
+```{r}
+coef(runs.mdl)
+```
+Alternatively, you can use the alias `coefficients` to access the `coef` function.
+
+To get a summary of a linear model object, you can use the `summary` function. The method used fo rlinear model objects is:
+```
+summary(object, correlation = FALSE, symbolic.cor = FALSE, ...)
+```
+For the example above, here is the output of the `summary` function:
+```{r}
+summary(runs.mdl)
+```
+When you print a summary object, the following method is used:
+```
+print(x, digits = max(3, getOption("digits") - 3),
+      symbolic.cor = x$symbolic.cor,
+      signif.stars = getOption("show.signif.stars"), ...)
+```
+### Predicting values using a model
+To get the vector of residuals from a linear model fit, use the `residuals` function:
+```
+residuals(object, ...)
+```
+To get a vector of fitted values, use the `fitted` function:
+```
+fitted(object, ...)
+```
+Suppose that you wanted to use the model object to predict values in another data set. You can use the `predict` function to calculate predicted values using the model object and another data frame:
+```
+predict(object, newdata, se.fit = FALSE, scale = NULL, df = Inf,
+        interval = c("none", "confidence", "prediction"),
+        level = 0.95, type = c("response", "terms"),
+        terms = NULL, na.action = na.pass,
+        pred.var = res.var/weights, weights = 1, ...)
+```
+The argument `object` specifies the model returned by the fitting function, `newdata` specifies a new data source for predicitons, and `na.action` specifies how to deal with missing values in `newdata`. (By defualt, `predict` ignores missing values. You can choose `na.omit` to simply return `NA` for observations in `newdata` with missing values). The `predict` function can also return confidence intervals for predictions, in addition to exact values; see the help file for more information.
+
+### Analyzing the fit
+To compute confidence intervals for the coefficients in the fitted model, use the `confint` function:
+```
+confint(object, parm, level = 0.95, ...)
+```
+The argument `object` specifies the model returned by the fitting function, `parm` specifies the variables for which to show confidence levels, and `level` specifies the confidence level. Here are the confidence intervals for the coefficients of the model fitted above:
+```{r}
+confint(runs.mdl)
+```
+To compute the influence of different parameters, you can use the `influence` function:
+```
+influence(model, do.coef = TRUE, ...)
+```
+For more friendly output, try `influence.measures`:
+```
+influence.measures(model)
+```
+To get analysis of variance statistics, use the `anova` function. For linear models, the method used is `anova.lmlist`, which has the following form:
+```
+anova.lmlist(object, ..., scale = 0, test = "F")
+```
+By default, F-test statistics are included in the results table. You can specify `test="F"` for F-test statistics, `test="Chisq"` for chi-squared test statistics, `test="Cp"` for Mallows' $C_p$ statistic, or `test=NULL` for no test statistics. You can also specify an estimate of the noise variance $\sigma^2$ through the `scale` argument. If you set `scale=0` (the default), then the `anova` function will calculate an estimate from the test data. The test statistic and $p$-values compare the mean square for each row to the residual mean square.
+
+Here are the ANOVA statistics for the model fitted above:
+```{r}
+anova(runs.mdl)
+```
+Interestingly, it appears that triples, stolen bases, and times caught stealing are not statistically significant.
+
+You can also view the effects from a fitted model. The effects are the uncorrelated single degree of freedom values obtained by projecting the data onto the successive orthogonal subspaces generated by the QR-decomposition during the fitting process. To obtain a vector of orthogonal effects from the model, use the `effects` function:
+```
+effects(object, set.sign = FALSE, ...)
+```
+To calculate the variance-covariance matrix from the linear model object, use the `vcov` function:
+```
+vcov(object, ...)
+```
+Here is the variance-covariance matrix for the model fitted above:
+```{r}
+vcov(runs.mdl)
+```
+To return the deviance of the fitted model, use the `deviance` function:
+```
+deviance(object, ...)
+```
+Here is the deviance for the model fitted above (though this value is just residual sum of squres in this case because `runs.mdl` is a linear model):
+```{r}
+deviance(runs.mdl)
+```
+Finally, to plot a set of useful diagnostic diagrams, use the `plot` function:
+```
+plot(x, which = c(1:3, 5)
+     caption = list("Residuals vs Fitted", "Normal Q-Q",
+          "Scale-Location", "Cook's distance",
+          "Residuals vs Leverage",
+          expression("Cook's dist vs Leverage " * h[ii] / (1 - h[ii]))),
+     panel = if(add.smooth) panel.smooth else points,
+     sub.caption = NULL, main = "",
+     ask = prod(par("mfcol")) < length(which) && dev.interactive(),
+     ...,
+     id.n = 3, labels.id = names(residuals(x)), cex.id = 0.75,
+     qqline = TRUE, cook.levels = c(0.5, 1.0),
+     add.smooth = getOption("add.smooth"), label.pos = c(4,2),
+     cex.caption = 1)
+```
+This function shows the following plots:
+
+* Residuals against fitted values
+* A normal Q-Q plot
+* A scale-location plot of sqrt{|residuals|} against fitted values
+* (Not plotted by default) A plot of Cook's distances versus row labels
+* A plot of residuals against leverages
+* (Not plotted by default) A plot of Cook's distances against leverage/(1 - leverage)
+
+There are many more function available in R for regression diagnostics; see the help file for `influence.measures` for more information on many of these.
+
+## Refining the Model
+Often, it is better to use the `update` function to refit a model. This can save you some typing if you are using R interactively. Additionally, this can save on computation time (for large data sets). You can run `update` after changing the formula (perhaps adding or subtracting a term) or even after changing the data frame.
+
+For example, let's fit a slightly different model to the data above. We'll omit the variable `sacrificeflies` and add $0$ as a variable (which means to fit the model with no intercept):
+```{r}
+runs.mdl2 <- update(runs.mdl, formula = runs ~ singles + doubles +
+                      triples + homeruns + walks + hitbypitch +
+                      stolenbases + caughtstealing + 0)
+runs.mdl2
+```

@@ -1,0 +1,179 @@
+---
+title: "Details About the lm Function"
+author: "Joseph Adler"
+date: "2012-09-25"
+publisher: "O'Reilly"
+output: html_document
+---
+
+```{r preprocessing, echo=FALSE}
+require(nutshell)
+data(team.batting.00to08)
+require(lattice)
+attach(team.batting.00to08);
+forplot <- make.groups(
+  singles        = data.frame(value=singles,        teamID,yearID,runs),
+  doubles        = data.frame(value=doubles,        teamID,yearID,runs),
+  triples        = data.frame(value=triples,        teamID,yearID,runs),
+  homeruns       = data.frame(value=homeruns,       teamID,yearID,runs),
+  walks          = data.frame(value=walks,          teamID,yearID,runs),
+  stolenbases    = data.frame(value=stolenbases,    teamID,yearID,runs),
+  caughtstealing = data.frame(value=caughtstealing, teamID,yearID,runs),
+  hitbypitch     = data.frame(value=hitbypitch,     teamID,yearID,runs),
+  sacrificeflies = data.frame(value=sacrificeflies, teamID,yearID,runs)
+);
+detach(team.batting.00to08)
+runs.mdl <- lm(
+  formula=runs ~ singles + doubles + triples + homeruns + walks + hitbypitch + 
+    sacrificeflies + stolenbases + caughtstealing,
+    data=team.batting.00to08
+)
+```
+
+Now that we've see a simple example of how models work in R, let's describe in detail what `lm` does and how you can control it. A linear regression model is appropriate when the response variable (the thing that you want to predict) can be estimated from a linear function of the predictor variables (the information that you know). Technically, we assume that:
+\begin{align*}
+y = c_0 + c_1x_1 + c_2x_2 + \cdots + c_nx_n + \varepsilon
+\end{align*}
+where $y$ is the response variable, $x_1, x_2, \ldots, x_n$ are the predictor variables (or predictors), $c_1, c_2, \ldots, c_n$ are the _coefficients_ for the predictor variables, $c_0$ is the _intercept_, and $\varepsilon$ is the _error term_. (For more details on the assumptions of the least squares model, see [Assumptions of Least Squares](/assumptions)). The predictors can be simple variables or even nonlinear functions of variables.
+
+Suppose that you have a matrix of observed predictor variables $X$ and a vector of response variables $Y$. (In this sentence, I'm using the terms "matrix" and "vector" in the mathematical sense). We have assumed a linear model, so given a set of coefficients $c$, we can calculate a set of estimates $\bar{y}$ for th einput data $X$ by calculating $\bar{y} = cX$. The differences between the estimates $\bar{y}$ and the actual values $Y$ are called the _residuals_. You can think of the residuals as a measure of the prediction error; small residuals mean that the predicted values are close to the actual values. We assume that the expected difference between the actual response values and the residual values (the error term in the model) is $0$. This is important to remember:at best, a model is probabilistic.
+
+Our goal is to find the set of coefficients $c$ that does the best job of estimating $Y$ given $X$; we'd like the estimates $\bar{y}$ to be as close as possible to $Y$. In a classical linear regression model, we find coefficients $c$ that minimize the sum of squared differences between the estimates $\bar{y}$ and the observed values $Y$. Specifically, we want to find values for $c$ that minimize:
+\begin{align*}
+\text{RSS}(c) = \sum^N_{i=1}(y_i - \hat{y}_i)^2
+\end{align*}
+This is called the least squares method for regression. YOu can use the `lm` function in R to estimate the coefficients in a linear model:
+```
+lm(formula, data, subset, weights, na.action,
+   method = "qr", model = TRUE, x = FALSE, y = FALSE, qr = TRUE,
+   singular.ok = TRUE, contrasts = NULL, offset, ...)
+```
+Arguments to `lm` include the following:
+
+
+|Argument|Description|Default|
+|:---:|:---:|:---:|
+|formula | A formula object that specifies the form of the model to fit.  | |
+|data | A data frame, list, or environment (or an object that can be coerced to a data frame) in which the variables in formula can be evaluated.  | |
+|subset | A vector specifying the observations in data to include in the model.| |
+|weights | A numeric vector containing weights for each observation in data. | NULL |
+|na.action | A function that specifies what `lm` should do if there are NA values in the data. If `NULL`, `lm` uses `na.omit`.| `getOption("na.action")`, which defaults to `na.fail`|
+|method | The method to use for fitting. ONly method="qr" fits a model, though you can specify method="`model.frame`" to return a model frame.|"`qr`"|
+|model | A logical value specifying whether the "model frame" should be returned.|`TRUE`|
+|x | Logical values specifying whether the "model matrix" should be returned.|`FALSE` |
+|y | A logical value specifying whether the response vector should be returned.|`FALSE`|
+|qr | A logical value specifying whether the QR-decomposition should returned.|`TRUE`|
+|singular.ok| A logical value that specifies whether a singular fit results in an error.|`TRUE`|
+|contrasts| A list of contrasts for factors in the model, specifying one contrast for each factor in the model. For example, for formula `y~a+b`, to specify a Helmert contrast for `a` and a treament contrast for `b`, you would use the argument `contrasts=(a="contr.helmert", b="contr.treatment")`. Some options in R are `"contr.helmert"`, `b="contr.treatment"` to contrast each level with the baseline level, and `"contr.poly"` for contrasts based on orthogonal polynomials. See [Venables2002] for an explaination of why contrsasts are important and how they are used.| When `contrasts=NULL` (the defulat) `lm` uses the value from `options("contrasts")`|
+|offset | A vector of offsets to use when building the model. (An offset is a linear term that is included in the model without fitting).| |
+|...| Additional arguments passed to lower-level functions such as `lm.fit` (for unweighted models)| |
+
+Model-fitting functions in R return model objects. A model object contains a lot of information about the fitted model (and the fitting operation). Different model objects contain slightly different information.
+
+You may notice that most modeling functions share a few common variables `formula`, `data`, `na.action`, `subset`, `weights`. These arguments mean the same thing for most modeling functions.
+
+If you are working with a very large data set, you may want to consider using the `biglm` function instead of `lm`. This function uses only $p^2$ memory for $p$ variables which is much less than the memory required for `lm`.
+
+# Assumptions of Least Squares Regression
+Linear models fit with the least squares method are one of the oldest statistical methods, dating back to the age of slide rules. Even today, when computers are ubiquitous, high-quality statistical softwre is free, and statisticians have developed thousands of new estimation methods, they are still popular. One reason why linear regression is still popular is because linear models are easy to understand. Another reason is that the least squares method has the smallest variance among all unbiased linear estimates (proven by the Gaus-Markov theorem).
+
+Technically, linear regression is not always appropriate. Ordinary least squares (OLS) regression (implemented through `lm`) is guaranteed to work only when certian properties of the training data are true. Here are the key assumptions:
+
+1. Linearity. We assume that the response variable $y$ is a linear function of the predictor variables $x_1, x_2, \ldots, c_n$.
+2. Full rank. There is no linear relationship between any pair of predictor variables. (Equivalently, the predictor matrix is not singular). Technically, $\forall x_i, x_j, \nexists c$ such that $x_i = cx_j$.
+3. Exogenicity of the predictor variables. The expected value of the error term $\varepsilon$ is $0$ for all possible values of the predictor variables.
+4. Homoscedasitcity. The variance of the error term $\varepsilon$ is constant and is not correlated with the predictor variables.
+5. Nonautocorrelation. In a sequence of observations, the values of $y$ are not correlated with one another.
+6. Exogenously generated data. The predictor variables $x_1, x_2, \ldots, x_n$ are generated independently of the process that generates the error term $\varepsilon$.
+7. The error term $\varepsilon$ is normally distributed with standard deviation $\sigma$ and mean $0$.
+
+In practice, OLS models often make accurate predictions even when one (or more) of these assumptions are violated.
+
+By the way, it's perfectly OK for there to be a _nonlinear_ relationship between some of the predictor variables. Suppose that one of the variables is `age`. You could add `age^2`, `log(age)`, or other nonlinear mathematical expressions using `age` to the model and not violate the assumptions above. You are effectively defining a set of new predictor variables: $w_1 = \text{age}$, $w_2 = \text{age}^2$, $w_3 = \log{(\text{age})}$. This doesn't violate the linearity assumption (because the model is still a linear function of the predictor variables) or the full rank assumption (as long as the relationship between the new variables is not linear).
+
+If you want to be careful, you can use test functions to check if the OLS assumptions apply:
+
+* You can test for heteroscedasticity using the function `ncvTest` in the `car` (Companion to Applied Regression) package, which implements the Breush-Pagan test. (Alternatively, you can use the `bptest` function in the `lmtest` library, which implements the same test. The `lmtest` librry includes a number of other functions for testing for heteroscedasticity; see the documentation for more details).
+* You can test for autocorrelation in a model using the function `durbin.watson` in the `car` package, which implements the Durbin-Watson test. You can also use the function `dwtest` in the library `lmtest` by specifying a formula and a data set. (Alternatively, you could use the function `bgtest` in the `lmtest` package, which implements the Breusch-Godfrey test. This functions also tests for higher-order disturbances).
+* You can check that the predictor matrix is not singular by using the `singular.ok=FALSE` argument in `lm`.
+
+Incidentally, the example used in "Example: A Simple Linear Model" on page 401 is not heteroscedastic:
+```{r}
+require(car)
+ncvTest(runs.mdl)
+```
+Nor is there a problem with autocorrelation:
+```{r}
+durbinWatsonTest(runs.mdl)
+```
+Or with singularity:
+```{r}
+runs.mdl <- lm(
+  formula=runs~singles+doubles+triples+homeruns+
+               walks+hitbypitch+sacrificeflies+
+               stolenbases+caughtstealing,
+  data=team.batting.00to08, singular.ok=FALSE
+)
+```
+If a model has problems with heteroscedasticity or outliers, consider using a resistant or robust regression function, as described in "Robust and Resistant Regression" on page 414. If the data is homoscedastic and not autocorrelated, but the error form is not normal, then a good choice is ridge regression, which is described in "Ridge Regression" on page 417. If the predictors are closely correlated (and nearly collinear), then a good choice is principal components regression, as described in "Principal Components Regression and Partial Least Squares Regression" on page 420.
+
+# Robust and Resistant Regression
+Often, ordinary least squares regression works well even with imperfect data. However, it's better in many situations to use regression techniques that are less sensitive to outliers and hereoscedasticity. With R, there are alternative options for fitting linear models.
+
+## Resistant regression
+If you would like to fit a linear regression model to data with outliers, consider using resistant regression. Using the least median squares (LMS) and least trimmed squares (LTS) estimators:
+```
+require(MASS)
+## S3 method for class 'formula':
+lqs(formula, data, ...,
+    method = c("lts", "lqs", "lms", "S", "model.frame"),
+    x.ret = FALSE, y.ret = FALSE, contrasts = NULL)
+
+## Default S3 method:
+lqs(x, y, intercept = TRUE, method = c("lts", "lqs", "lms", "S"),
+    quantile, control = lqs.control(...), k0 = 1.548, seed, ...)
+```
+
+## Robust regression
+Robust regression methods can be useful when there are problems with heteroscedasticity and outliers in the data. The function `rlm` in the `MASS` package fits a model using MM-estimation:
+```
+## S3 method for class 'formula':
+rlm(formula, data, weights, ..., subset, na.action,
+    method = c("M", "MM", "model.frame"),
+    wt.method = c("inv.var", "case"),
+    model = TRUE, x.ret = TRUE, y.ret = FALSE, contrasts = NULL)
+
+## Default S3 method:
+rlm(x, y, weights, ..., w = rep(1, nrow(x)),
+    init = "ls", psi = psi.huber,
+    scale.est = c("MAD", "Huber", "proposal 2"), k2 = 1.345,
+    method = c("M", "MM"), wt.method = c("inv.var", "case"),
+    maxit = 20, acc = 1e-4, test.vec = "resid", lqs.control = NULL)
+```
+You may also want to try the function `lmRob` in the `robust` package, which fits a model using MS- and S-estimation:
+```
+libarary(robust)
+lmRob(formula, data, weights, subset, na.action, model = TRUE, x = FALSE,
+            y = FALSE, contrasts = NULL, nrep = NULL,
+            control = lmRob.control(...), genetic.control = NULL, ...)
+```
+
+## Comparing `lm`, `lqs`, and `rlm`
+As a quick exercise, we'll look at how `lm`, `lqs`, and `rlm` perform on some particularly ugly data: U.S. housing prices. We'll use Robert Shiller's home price index as an example, looking at home prices between 1890 and 2009. First, we'll load the data and fit the data using an ordinary linear regression model, a robust regression model, and a resistant regression model:
+```{r}
+library(nutshell)
+require(MASS)
+data(shiller)
+hpi.lm <- lm(Real.Home.Price.Index~Year, data=shiller.index)
+hpi.rlm <- rlm(Real.Home.Price.Index~Year, data=shiller.index)
+hpi.lqs <- lqs(Real.Home.Price.Index~Year, data=shiller.index)
+```
+Now we'll plot the data to compare how each method worked. We'll plot the models using the `abline` function because it allows you to specify a model as an argument (as long as the model funciton has a coefficient function):
+```{r}
+plot(shiller.index, pch=19, cex=0.3)
+abline(reg=hpi.lm, lty=1)
+abline(reg=hpi.rlm, lty=2)
+abline(reg=hpi.lqs, lty=3)
+legend(x=1900, y=200, legend=c("lm", "rlm", "lqs"), lty=c(1, 2, 3))
+```
+As you can see from Figure 20-2, the standard linear model is influenced by big peaks (such as the growth between 2001 and 2006) and big valleys (such as the dip between 1920 and 1940). The robust regression method is less sensitive to peaks and valleys in this data, and the resistant regression method is the least sensitive.

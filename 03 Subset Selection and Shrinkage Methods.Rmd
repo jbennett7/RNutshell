@@ -1,0 +1,139 @@
+---
+title: "Subset Selection and Shrinkage Methods"
+author: "Joseph Adler"
+date: "2012-09-25"
+publisher: "O'Reilly"
+output: html_document
+---
+
+Modeling functions like `lm` will include every variable specified in the formula, calculating a coefficient for each one. Unfortunately, this means that `lm` may calculate coefficients for variables that aren't needed. You can manually tune a model using diagnostics like `summary` and `lm.influence`. However, you can also use some other statistical techniques to reduce the effect of insignificant variables or remove them from a model altogether.
+
+# Stepwise Variable Selection
+A simple technique for selecting the most important variables is stepwise variable selection. The stepwise algorithm works by repeatedly adding or removing variables from the model, trying to "imporve" the model at each step. When the algorithm can no longer improve the model by adding or subtracting variables, it stops and returns the new (and usually smaller) model.
+
+Note that "improvement" does not just mean reducing the residual sum of squares (RSS) for the fitted model. Adding an additional variable to a model will not increase the RSS (see a statistics book for an explanation of why), but it does increase model complexity. Typically, AIC (Akaike's information criterion) is used to measure the value of each additional variable. The AIC is defined as $\text{AIC} = -2 \times \log{(L)} + k \times \text{edf}$, where $L$ is the likelihood and edf is the equivalent degrees of freedom.
+
+In R, you perform stepwise selection through the `step` function:
+```
+step(object, scope, scale = 0,
+     direction = c("both", "backward", "forward"),
+     trace = 1, keep = NULL, steps = 1000, k = 2, ...)
+```
+Here is a description of the arguments to `step`.
+
+|Argument|Description|Default|
+|:---:|:---:|:---:|
+|object|An object representing a model, such as the objects returned by `lm`, `glm`, or `aov`.||
+|scope|An argument specifying a set of variables that you want in the final model and a list of all variables that you want to consider including in the model. The first set is called the _lower bound_, and the second is called the _upper bound_. If a single formula is specified, then it is interpreted as the upper bound. To specify both an upper and a lower bound, pass a list with two formulas labeled as upper and lower.||
+|scale|A value used in the definition of AIC for `lm` and `aov` models. See the help file for `extractAIC` for more information.|0|
+|direction|Specifies whether variables should be only added to the model (`direction="forward"`), removed from the model (`direction="backward"`), or both (`direction="both"`).|`"both"`|
+|trace|A numeric value that spcifies whether to print out details of the fitting process. Specify `trace=0` (or a negative number) to suppress printing, `trace=1` for normal detail, and higher numbers for even more detail.|1|
+|keep|A function used to select a subset of arguments to keep from an object. The function accepts a fitted model object and an AIC statistic.|`NULL`|
+|steps|A numeric value that specifies the maximum number of steps to take before the function halts.|1000|
+|k|The multiple of the number of degrees of freedom to be used in the penalty calculation (`extractAIC`)|2|
+|...|Additional arguments `extractAIC`.||
+
+There is an alternative implementation of stepwise selection in the `MASS` library: the `stepAIC` function. THis function works similarly to `step` but operates on a wider range of model objects.
+
+# Ridge Regression
+Stepwise variable selection simply fits a model using `lm`, but limits the number of variables in the model. In contrast, ridge regression places constraints on the size of the coefficients and fits a model using different computations.
+
+Ridge regression can be used to mitigate problems when there are several highly correlated variables in the underlying data. This condition (called _multicollinearity_) causes high variance in the results. Reducing the number, or impact, of regressors in the data can help reduce these problems.
+
+In "Details About the lm function" on page 410, we described how ordinary linear regression finds the coefficients that minimize the residual sum of squares. Ridge regression does something similar. Ridge regression attempts to minimize the sum of squared residuals plus a penalty for the coefficient sizes. The penalty is a constant $\lambda$ times the sum of squared coefficients. Specifically, ridge regression tires to monimize the following quantity:
+
+\begin{align}
+\text{RSS}_{\text{ridge}}(c) = \sum^N_{i=1}{(y_i - \hat{y}_i)^2} + \lambda \sum^m_{j=1}{c^2_i}
+\end{align}
+
+To estimate a model using ridge regression, you can use the `lm.ridge` function from the `MASS` package
+```
+library(MASS)
+lm.ridge(formula, data, subset, na.action, lambda = 0, model = FALSE,
+         x = FALSE, y = FALSE, contrasts = NULL, ...)
+```
+
+Arguments to `lm.ridge` are the following.
+
+|Argument|Description|Default|
+|:---:|:---:|:---:|
+|formula| A formula object that specifies the form of the model to fit. ||
+|data| A data frame, list, or environment (or an object that can be coerced to a data frame) in which the variables in `formula` can be evaluated.||
+|subset| A vector specifying the observations in data to include in the model.||
+|na.action| A function that specifies what `lm` should do if there are `NA` values in the data. If `NULL`, `lm` uses `na.omit`||
+|lambda| A scalar or vector of ridge constants.|0|
+|model| A logical value specifying whether the "model frame" should be returned.|FALSE|
+|x| Logical values specifying whether the "model matrix" should be returned.|FALSE|
+|y| A logical value specifying whether the response vector should be returned.|FALSE|
+|contrasts| A list of contrasts for factors in the model.|FALSE|
+|...| Additional arguments to `lm.fit`|NULL|
+
+# Lasso and Least Angle Regression
+
+Another technique for reducing the size of the coefficients (and thus reducing their impact on the final model) is the lasso. Like ridge regression, lasso regression puts a penalty on the size of the coefficients. However, the lasso algorithm uses a different penalty: instead of a sum of squared coefficients, the lasso sums the absolute value of the coefficients. (In math terms, ridge uses $L^2$-norms, while lasso uses $L^1$-norms) Specifically, the lasso algorithm tries to minimize the following value:
+
+\begin{align*}
+\text{RSS}_{\text{lasso}}(c) = \sum^N_{i=1}{(y_i - \hat{y}_i)^2} + \lambda \sum^m_{j=1}{|c_i|}
+\end{align*}
+
+The best way to compute lasso regression in R is through the `lars` function:
+```
+library(lars)
+lars(x, y, type = c("lasso", "lar", "forward.stagewise", "stepwise"),
+     trace = FALSE< normalize = TRUE, intercept = TRUE, Gram,
+     eps = .Machine$double.eps, max.steps, use.Gram = TRUE)
+```
+
+The `lars` function computes the entire lasso path at once. Specifically, it begins with a model with no variables. It then computes the lambda values for which each variable enters the model and shows the resulting coefficients. FInally, the `lars` algorithm computes a model with all the coefficients present, which is the same as an ordinary linear regression fit.
+
+This function actually implements a more general algorithm called _least angle regression_; you have the option to choose least angle regression, forward stagewise regression, or stepwise regression instead of lasso. Here are the arguments to the `lars` function.
+
+|Argument|Description|Default|
+|:---:|:---:|:---:|
+|x| A matrix of predictor variables. ||
+|y| A numeric vector containing the response variable. ||
+|type| The type of model to fit. Use `type="lass"` for lasso, `type="lar"` for least angle regression, `type="forward.stagewise"` for infinitesimal forward stagewise, and `type="stepwise"` for stepwise.| |`c("lasso", "lar", "forward.stagewise", "stepwise")`|
+|trace| A logical value specifying whether to print details as the function is running. |FALSE|
+|normalize| A logical value specifying whether each variable will be standardized to have an $L^2$-norm of 1.|TRUE|
+|intercept| A logical value indicating whether an intercept should be included in the model.|TRUE|
+|Gram|The $X'X$ matrix used in the calculations. To rerun `lars` with slightly different parameters, but the same underlying data, you may reuse the `Gram` matrix from a prior run to increase efficiency.||
+|eps| An effective 0.|`.Machine$double.eps$`|
+|max.steps| A limit on the number of steps taken by the `lars` function. ||
+|use.Gram| A logical value specifying whether `lars` should precompute the Gram matrix. (For large $N$, this can be time consuming).|TRUE|
+
+# elasticnet
+
+Both ridge regression and lasso regression are subset of a family of models called elastic net. Elastic nets are available in R through the function `enet` in the package `elasticnet`. (Both the algorithm and code were developed by Hui Zou and Trevor Hastie).
+```
+enet(x, y, lambda, max.steps, normalize, intercept, trace, eps)
+```
+Unfortunately, the `enet` function requires its input as a matrix and not as a data frame and a formula. Here is a description of the parameters for `enet`.
+
+|Argument|Description|Default|
+|:---:|:---:|:---:|
+|x| A matrix of predictor variables. ||
+|y| A numeric vector containing the response variable.||
+|lambda| The quadratic penalty, Use `lambda=0` for a lasso fit.||
+|max.steps| The maximum number of steps|`50 * min(ncol(x), nrow(x)-1)`|
+|trace| Specifies whether to print progress.|FALSE|
+|normalize| A logical value indicating whether to normalize the input before computing the fit. |TRUE|
+|intercept| A logical value indicating whether to center the predictors |TRUE|
+|eps| An effective 0.|`.Machine$double.eps`|
+
+# Principal Components Regression and Partial Least Squares Regression
+Ordinary least squares regression doesn't always work well with closely correlated variables. A useful technique for modeling effects in this form of data is principal components regression. Principal components regression is available through the function `pcr` in teh `pls` package:
+```
+library(pls)
+pcr(..., method=pls.options()$pcralg)
+```
+Partial least squares is available through the function `plsr` in the same package:
+```
+plsr(..., method=pls.option()$plsralg)
+```
+Both functions are actually aliases to the function `mvr`:
+```
+mvr(formula, ncom, data, subset, na.action,
+    method = pls.options()$mvralg,
+    scale=FALSE, validation=c("none", "CV", "LOO"),
+    model=TRUE, x=FALSE, y=FALSE, ...)
+```
