@@ -1,0 +1,158 @@
+---
+title: "Survival Models"
+author: "Joseph Adler"
+date: "2012-09-25"
+output: html_document
+---
+Survival analysis is concerned with looking at the amount of time that elapses before an event occurs. An obvious application is to look at mortality statistics (predicting how long people live), but it can also be applied to mechanical systems (the time before a failure occurs), marketing (the amount of time before a consumer cancels an account), or other areas.
+
+In R, there are a variety of functions in the `survival` library for modeling survival data.
+```
+library(survival)
+survfit(formula, data, weights, subset, na.action, etype, id, ...)
+```
+This function accepts the following arguments.
+
+|Argument|Description|
+|:---|:---|
+|formula|Describes the relationship between the response value and the predictors. The response value should be a Durv object.|
+|data|The data frame in which to evaluate formula.|
+|weights|Weights for observations.|
+|subset|Subset of observation to use in fitting the model.|
+|na.action|Function to deal with missing values.|
+|etype|The variable giving the type of event.|
+|id|The variable that identifies individual subjects.|
+|type|Specifieis the type of survival curve. Options include `"kaplan-meier"`, `"fleming-harrington"`, and `"fh2"`.
+|error|Specifies the type of error. Possible values are `"greenwood"` for the Greenwood formula or `"tsiatis"` for the Tsiatis formula.|
+|conf.type|Confidence interval type. One of `"none"`, `"plain"`, `"log"` (the default), or `"log-log"`.
+|conf.lower|A character string to specify modified lower limits to the curve; the upper limit remains unchanged. Possible values are `"usual"` (unmodified), `"peto"`, and `"modified"`.
+|start.time|Numeric value specifying a time to start calculating survival information.|
+|conf.int|The level for a two-sided confidence interval on teh survival curve(s).|
+|se.fit|A logical value indicating whether standard errors should be computed.|
+|...|Additional variables passed to internal functions.|
+
+As an example, let's fit a survival curve for the `GSE2034` data set. This data comes from the Gene Expression Omnibus of the National Center for Biotechnology Information (NCBI), which is accessible from _http://www.ncbi.nlm.nih.gov/geo/_. The experiment examined how the expression of certain genes affected breast canser relapse-free survival time. In particular, it tested estrogen receptor binding sites. (We'll revisit this example in Chapter 25).
+
+First, we need to create a `Surv` object within the data frame. A `Surv` object is an R object for representing survival information, in particular, censored data. Censored data occurs when the outcome of the experiment is not known for all observiations. In this case, the data is censored. There are three possible outcomes for each observation: the subject had a recurrence of the disease, the subject died without having time the data was reported. The last outcome&mdash;the subject was still alive without a recurrence&mdash;results in the censored values:
+```{r}
+require(nutshell)
+data(GSE2034)
+library(survival)
+GSE2034.Surv <- transform(GSE2034,
+  surv=Surv(
+    time=GSE2034$months.to.relapse.or.last.followup,
+    event=GSE2034$relapse,
+    type="right"
+  )
+)
+# show the first 26 observations:
+GSE2034.Surv$surv[1:26,]
+```
+Now let's calculate the survival model. We'll just make it a function of the ER.status flag (which stands for "estrogen receptor"):
+```{r}
+GSE2034.survfit <- survfit(
+  formula=surv~ER.Status,
+  data=GSE2034.Surv
+)
+```
+The easiest way to view a `survfit` object is graphically. Let's plot the model:
+```{r}
+plot(GSE2034.survfit, lty=1:2, log=T)
+legend(135, 1, c("ER+", "ER-"), lty=1:2, cex=0.5)
+```
+To fit a parametric survival model, you can use the `survreg` function in the `survival` package:
+```
+survreg(formula, data, weights, subset,
+        na.action, dist="weibull", init=NULL, scale=0,
+        control, parms=NULL, model=FALSE, x=FALSE,
+        y=TRUE, roboust=FALSE, score=FALSE, ...)
+```
+Here is a description of the arguments to `survreg`.
+
+|Argument|Description|Default||
+|:---|:---|:---|
+|formula|A formula that describes the form of the model; the response is usually a `Surv` object (created by the `Surv` function).||
+|data|A data frame containing the training data for the model.||
+|weights|A vector of weights for observations in data.||
+|subset|An expression describing a subset of observations in data to use for fitting the model.||
+|na.action|A function that describes how to treat NA values.|`options()$na.action`|
+|dist|A character value describing the form of the y variable (either `"weibull"`, `"exponential"`, `"gaussian"`, `"logistic"`, `"lognormal"`, or `"loglogistic"`) or a distribution like the ones in `survreg.distributions`.|`"weibull"`|
+|init|Optional vector of initial parameters.|`NULL`|
+|scale|Value specifying the scale of the estimates. Estimated if `scale <= 0`.|0|
+|control|A list of control values, usually produced by `survreg.control`.||
+|parms|A list of fixed parameters for the distribution function.|`NULL`|
+|model, x, y|Logical values indicating whether to return the model frame, X matrix, or Y vector (respectively) with the results.|`FALSE`|
+|robust|A logical value indicating whether to use "robust sandwich standard methods"|`FALSE`|
+|score|A logical value indicating whether to return the score vector.|`FALSE`|
+|...|Other arguments passed to `survreg.control`||
+
+You can compute the expected survival for a set of subjects (or individual expectations for each subject) with the function `survexp`:
+```
+library(survival)
+survexp(formula, data, weights, subset, na.action, rmap, times,
+    cohort = TRUE, conditional = FALSE, ratetable = survexp.us,
+    scale = 1, npoints, se.fit, model = FALSE, x = FALSE, y = FALSE)
+```
+Here is a description of the arguments to `survexp`.
+
+|Argument|Description|Default|
+|:---|:---|:---|
+|formula|A formula object describing the form of the model. The (optional) response should contain a vector of follow-up times, and the predictors should contain grouping variables separated by `+` operators.||
+|data|A data frame containing source data on which to predict values.||
+|weights|A vector of weights for the cases.||
+|subset|An expression indicating which observations in data should be included in the prediction.||
+|na.action|A function specifying how to deal with missin (NA) values in the data.|`options()$na.action`|
+|times|A vector of follow-up times at which the resulting survival curve is evaluated. (This may also be included in the formula; see above).||
+|cohort|A logical value indicating whether to calculate the survival of the whole cohort (`cohort=TRUE`) or individual observations (`cohort=FALSE`)|`TRUE`|
+|conditional|A logical value indicating whether to calculate conditional expected survival. Specify `conditional=TRUE` if the follow-up times are times of death, and `conditional=FALSE` if the follow-up times are potential censoring times.|`FALSE`|
+|ratetable|A fitted Cox model (from `coxph`) or a table of survival times.|`survexp.us`|
+|scale|Anumeric value specifying how to scale the results.|1|
+|npoints|A numeric value indicating the number of points at which to calculate individual results.||
+|se.fit|A logical value indicating whether to include the standard error of the predicted survival.||
+|model, x, y|Specifies whether to return the model frame, the X matrix, or the Y vector in the results.|`FALSE` for all three|
+
+The Cox proportional hazard model is a nonparametric method for fitting survival models. It is available on R through the `coxph` function in the `survival` library.
+```
+coxph(formula, data, weights, subset, na.action, init, control,
+    ties = c("efron", "breslow", "exact"), singular.ok = TRUE,
+    robust = FALSE, model = FALSE, x = FALSE, y = TRUE, tt, method = ties,
+    ...)
+```
+Here is a description of the arguments to `coxph`.
+
+|Argument|Description|Default|
+|:---|:---|:---|
+|formula|A formula that describes the form of the model; the response must be a `Surv` object (created by the `Surv` function).||
+|data|A data frame containing source data on which to predict values.||
+|weights|A vector of weights for the cases.||
+|subset|An expression indicating which observations in data should be fit.||
+|na.action|A function specifying how to deal with missing (NA)  values in the data.||
+|init|A vector of initial parameter values for the fitting process.|0 for all variables|
+|control|Object of class `coxph.control` specifying the iteration limit and other control options.|`coxph.control(...)`|
+|method|A character value specifying the method for handling ties. Choices include `"efron"`, `"breslow"`, and `"exact"`.|`"efron"`|
+|singular.ok|A logical value indicating whether to stop with an error if the X matrix is singular or to simply skip variables that are linear combinations of other variables.|`TRUE`|
+|robust|A logical value indicating whether to return a robust variance estimate.|`FALSE`|
+|model|A logical value specifying whether to return the  model frame.|`FALSE`|
+|x|A logical value specifying whether to return the X matrix.|`FALSE`|
+|y|A logical value specifying whether to return the Y matrix.|`FALSE`|
+|...|Additional arguments passed to `coxph.control`.||
+
+As an example, let's fit a Cox proportional hazard model to the `GSE2034` data:
+```{r}
+GSE2034.coxph <- coxph(
+  formula = surv~ER.Status,
+  data=GSE2034.Surv,
+)
+GSE2034.coxph
+```
+The summary method for `coxph` objects provides additional information about the fit:
+```{r}
+summary(GSE2034.coxph)
+```
+Another useful function is `cox.zph`, which tests the proportional hazards assumption for a Cox regression model fit:
+```{r}
+cox.zph(GSE2034.coxph)
+```
+There are additional methods available for viewing information about `coxph` fits, including `residuals`, `predict`, and `survfit`; see the help file for `coxph.object` for more information.
+
+There are other functions in the `survival` package for fitting survival models, such as `cch`, which fits proportional hazard models to case-cohort data. See the help file for more information.
