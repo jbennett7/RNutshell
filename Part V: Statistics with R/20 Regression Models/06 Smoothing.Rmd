@@ -1,0 +1,140 @@
+---
+title: "Smoothing"
+author: "Joseph Adler"
+date: "2012-09-25"
+output: html_document
+---
+This section describes a number of functions for fitting piecewise smooth curves to data. Functions in this section are particularly useful for plotting charts; there are even convenience functions for using these functions to show fitted values in some graphics packages.
+
+# Splines
+One method for fitting a function to source data is with splines. With a linear model, a single line is fitted to all the data. With spline methods, a set of different polynomials is fitted to different sections of the data.
+
+You can compute simple cubic splines with the `spline` function in the `stats` packatge:
+```
+spline(x, y = NULL, n = 3 * length(x), method = "fmm", xmin = min(x),
+    xmax = max(x), xout, ties = mean)
+```
+
+Here is a description of the arguments to `smooth.spline`.
+|Argument|Description|Default|
+|:---|:---|:---|
+|x|A vector specifying the predictor variable, or a two-column matrix specifying both th epredictor and the response variables.||
+|y|If x is a vector, then y is a vector containing the response variable.|`NULL`|
+|n|If xout is not specified, then interpolation is done at n equally spaced points between `xmin` and `xmax`.|`3 * length(x)`|
+|method|Specifies the type of spline. Allowed values include `"fmm"`, `"natural"`, `"periodic"`, and `"monoH.FC"`.|`"fmm"`|
+|xmin|Lowest x value for interpolations.|`min(x)`|
+|xmax|Highest x value for interpolations.|`max(x)`|
+|xout|An optional vector of values specifying where interpolation should be done.||
+|ties|A method for handling ties. Either the string `"ordered"` or a function that returns a single numeric value.|`mean`|
+
+To return a function instead of a list of parameters, use the function `splinefun`:
+```
+splinefun(x, y = NULL, method = c("fmm", "periodic", "natural", "monoH.FC"),
+          ties = mean)
+```
+
+To fit a cubic smoothing spline model to supplied data, use the `smooth.spline` function:
+
+```
+smooth.spline(x, y, w, df, spar,
+  cv, all.knots, nknots, keep.data, df.offset,
+  penalty, control.spar)
+```
+
+Here is a description of the arguments to `smoothe.spline`:
+
+|Arguement|Description|Default|
+|:---|:---|:---|
+|x|A vector specifing the predictor variable, or a two-column matrix specifying both the predictor and the response variables.||
+|y|If x is a vector, then y is a vector containing the response variable.|`NULL`|
+|w|An optional numeric vector containing weights for the input data.|`NULL`|
+|df|degrees of freedom.||
+|spar|Numeric value spcifying the smoothing parameter.|`NULL`|
+|cv|A logical value specifying whether to use ordinary cross-validation (`cv=TRUE`) or generalized cross-validation (`cv=FALSE`)|`FALSE`|
+|all.knots|A logical value specifying whether to use all values in x as knots.|`FALSE`|
+|nknots|An integer value specifying the number of knots to use when `all.knots=FALSE`.|`NULL`|
+|keep.data|A logical value indicating whether the input data should be kept in the result.|`TRUE`|
+|df.offset|A numeric value specifying how much to allow the df to be increased in cross-validation.|0|
+|penalty|The penalty for degrees of freedom during cross-validation.|1|
+|control.spar|A list of parameters describing how to compute `spar` (when not explicityly specified). See the help file for more information.|`list()`|
+
+For example, we can calculate a smoothing spline on the SHiller home price index. This data set contains one annual measurement through 2006 but then has fractional measurements after 2006, making it slightly difficult to align with other data.
+
+```{r}
+library(nutshell)
+data(shiller)
+shiller.index[shiller.index$Year>2006,]
+```
+We can use smoothing splines to find values for 2007 and 2008:
+```{r}
+shiller.index.spl <- smooth.spline(shiller.index$Year,
+  shiller.index$Real.Home.Price.Index)
+predict(shiller.index.spl, x=c(2007,2008))
+```
+
+## Fitting Polynomial Surfaces
+You can fit a polynomial surface to data (by local fitting) using the `loess` function. (This function is used in many graphics functions; for example, `panel.loess` uses `loess` to fit a curve to data and plot the curve).
+```
+loess(formula, data, weights, subset, na.action, model = FALSE,
+      span = 0.75, enp.target, degree = 2,
+      parametric = FALSE, drop.square = FALSE, normalize = TRUE,
+      family = c("gaussian", "symmetric"),
+      method = c("loess", "model.frame"),
+      control = loess.control(...), ...)
+```
+Here is a description of the arguments to `loess`.
+
+|Argument|Description|Default|
+|:---|:---|:---|
+|formula|A formula specifying the relationship between the response and the predictor variables.||
+|data|A data frame, list, or environment specifying the training data for the model fit. (If none is specified, then `formula` is evaluated in the calling environment).||
+|weights|A vector of weights for the cases in the training data.||
+|subset|An optional expression specifying a subset of cases to include in the model.||
+|na.action|A function specifying how to treat missing values.|`getOp`|
+|model|A logical value indicating whether to return the model frame.|`FALSE`|
+|span|A numeric value specifying the parameter a, which controls the degree of smoothing.|0.75|
+|enp.target|A numeric value specifying the equivalent number of parameters to be used (replaced `span`).||
+|degree|The degree of polynomials used.|2|
+|parametric|A vector specifying any terms that should be fit globally rather than locally. (May be specified by name, number, or as a logical vector).|`FALSE`|
+|drop.square|Specifies whether to drop the quadratic term for some predictors.|`FALSE`|
+|normalize|A logical value specifying whether to normalize predictors to a common scale.|`TRUE`|
+|family|Specifies how fitting is done. Specifying `family="gaussian"` to fit by least squares, and `family="symmetric"` to fit with Tukey's biweight function.|`"gaussian"`|
+|method|Specifies whether to fit th emodel or just return the model frame.|`"loess"`|
+|control|Control parameters for loess, typically generated by a call to `loess.control`.|`loess.control(...)`|
+|...|Additional arguements are passed to `loess.control`.
+
+Using the same example as above:
+```{r}
+shiller.index.loess <- loess(Real.Home.Price.Index~Year, data=shiller.index)
+predict(shiller.index.loess, newdata=data.frame(Year=c(2007,2008)))
+```
+## Kernel Smoothing
+To estimate a probability density function, regression function, or their derivatives using polynomials, try the function `locpoly` in the library `KernSmooth`:
+```
+kibrary(KernSmooth)
+locpoly(x, y, drv = OL, degree, kernel = "normal",
+        bandwidth, gridsize = 401L, bwdisc = 25,
+        range.x, binned = FALSE, truncate = TRUE)
+```
+Here is a description of the arguments to `locpoly`.
+
+|Argument|Description|Default|
+|:---|:---|:---|
+|x|A vector of x values (with no missing values).||
+|y|A vector of y values (with no missing values).||
+|drv|Order of derivative to estimate.|`0L`|
+|degree|Degree of local polynomials.|`drv + 1`|
+|kernel|Kernel function to use. Currently ignored ("normal" is used).|`"normal"`|
+|bandwidth|A single value or an array of length `gridsize` that specifies the kernel bandwidth smoothing parameter.||
+|gridsize|Specifies the number of equally spaced points over which the function is estimated.|`401L`|
+|bwdisc|Number of (logarithmically equally spaced) values on which bandwidth is discretized.|`25`|
+|range.x|A vector containing the minimum and maximum values of x on which to compute the estimate.||
+|binned|A logical value specifying whether to interpret x and y as grid counts (as opposed to raw data).|`FALSE`|
+|truncate|A logical value spcifying whether to ignore x values outside `range.x`.|`TRUE`|
+
+R also includes an implementation of local regression through `locfit` function in the `locfit` library:
+```
+library(locfit)
+locfit(formula, data=sys.frame(sys.parent()), weights=1, cens=0, base=0,
+       subset, geth=FALSE, ..., lfproc=locfit.raw)
+```
